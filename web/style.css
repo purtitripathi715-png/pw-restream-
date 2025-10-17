@@ -1,1 +1,8 @@
-
+body{background:#0f1724;color:#e6eef8;font-family:system-ui, -apple-system, 'Segoe UI', Roboto;margin:0;padding:24px}
+.card{max-width:880px;margin:24px auto;padding:18px;border-radius:10px;background:linear-gradient(180deg,#0b1220,#0f1724);box-shadow:0 6px 24px rgba(2,6,23,0.6)}
+input[type=text], input[type=url], input {width:100%;padding:10px;border-radius:8px;border:1px solid #17303f;background:#071018;color:#dff0ff}
+button{padding:10px 14px;border-radius:8px;border:0;background:#1db954;color:#04120a;font-weight:700;margin-right:8px}
+.muted{color:#9bb0c3}
+.output{display:flex;gap:8px}
+.output input{flex:1}
+.small{font-size:12px}
