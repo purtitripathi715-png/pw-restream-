@@ -1,1 +1,12 @@
-
+version: '3.8'
+services:
+  app:
+    build: ./server
+    container_name: pw-restream-demo
+    ports:
+      - "80:80"    # exposes web UI + HLS
+    env_file:
+      - ./server/.env
+    volumes:
+      - ./server/hls:/app/hls
+    restart: unless-stopped
