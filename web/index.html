@@ -1,1 +1,79 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>PW Restream Demo — Generate HLS</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="card">
+    <h1>Restream Generator (Demo)</h1>
+    <p class="muted">Paste a public .m3u8 URL below (public streams only). Click <strong>Generate</strong> to start server-side restream. Copy the generated HLS link and share.</p>
 
+    <label>Source .m3u8 URL</label>
+    <input id="src" placeholder="https://example.com/playlist.m3u8" spellcheck="false" />
+
+    <div class="row">
+      <button id="generate">Generate Link</button>
+      <button id="stop">Stop</button>
+    </div>
+
+    <label>Generated HLS URL</label>
+    <div class="output">
+      <input id="hls" readonly />
+      <button id="copy">Copy</button>
+    </div>
+
+    <p id="status" class="muted">Status: idle</p>
+
+    <p class="small muted">Legal: Use only with public streams you have right to restream. Do not redistribute paid/DRM content.</p>
+  </div>
+
+<script>
+async function $(sel){return document.querySelector(sel)}
+const gen = await $('#generate');
+(async()=>{
+  const src = $('#src');
+  const hls = $('#hls');
+  const copy = $('#copy');
+  const stop = $('#stop');
+  const status = $('#status');
+
+  document.getElementById('generate').addEventListener('click', async ()=>{
+    const url = src.value.trim();
+    if(!url){alert('Paste a source URL'); return}
+    status.innerText = 'Status: starting...';
+    try{
+      const res = await fetch('/api/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source:url})});
+      const j = await res.json();
+      if(j.ok){
+        hls.value = j.hls;
+        status.innerText = 'Status: running';
+      } else if (j.error){
+        alert('Error: '+j.error);
+        status.innerText = 'Status: error';
+      }
+    }catch(e){
+      alert('Request failed: '+e);
+      status.innerText = 'Status: failed';
+    }
+  });
+
+  stop.addEventListener('click', async ()=>{
+    await fetch('/api/stop',{method:'POST'});
+    status.innerText = 'Status: stopped';
+    $('#hls').value = '';
+  });
+
+  copy.addEventListener('click', ()=>{
+    if(!hls.value) return;
+    navigator.clipboard.writeText(hls.value).then(()=>{
+      copy.innerText = 'Copied';
+      setTimeout(()=>copy.innerText='Copy',1000);
+    });
+  });
+})();
+</script>
+</body>
+</html>
