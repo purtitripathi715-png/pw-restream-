@@ -1,149 +1,79 @@
 <!doctype html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>HLS Link Generator & Player (Demo)</title>
-
-  <!-- Hls.js CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>PW Restream Demo — Generate HLS</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <main class="card">
-    <h1>HLS Generator & Player</h1>
-    <p class="muted">Paste a public <code>.m3u8</code> URL and click <strong>Generate</strong>. Use only public streams you have rights to.</p>
+  <div class="card">
+    <h1>Restream Generator (Demo)</h1>
+    <p class="muted">Paste a public .m3u8 URL below (public streams only). Click <strong>Generate</strong> to start server-side restream. Copy the generated HLS link and share.</p>
 
-    <label for="src">Source .m3u8 URL</label>
+    <label>Source .m3u8 URL</label>
     <input id="src" placeholder="https://example.com/playlist.m3u8" spellcheck="false" />
 
     <div class="row">
-      <button id="generate" class="btn positive">Generate & Play</button>
-      <button id="clear" class="btn">Clear</button>
+      <button id="generate">Generate Link</button>
+      <button id="stop">Stop</button>
     </div>
 
-    <label for="hls">Generated HLS URL</label>
+    <label>Generated HLS URL</label>
     <div class="output">
-      <input id="hls" readonly placeholder="Generated HLS link will appear here" />
-      <button id="copy" class="btn">Copy</button>
+      <input id="hls" readonly />
+      <button id="copy">Copy</button>
     </div>
 
     <p id="status" class="muted">Status: idle</p>
 
-    <div class="player-wrap">
-      <video id="video" controls playsinline></video>
-    </div>
-
-    <p class="small muted">If playback fails, the source might be CORS-restricted or expired.</p>
-  </main>
+    <p class="small muted">Legal: Use only with public streams you have right to restream. Do not redistribute paid/DRM content.</p>
+  </div>
 
 <script>
-  const srcInput = document.getElementById('src');
-  const generateBtn = document.getElementById('generate');
-  const clearBtn = document.getElementById('clear');
-  const hlsInput = document.getElementById('hls');
-  const copyBtn = document.getElementById('copy');
-  const statusEl = document.getElementById('status');
-  const video = document.getElementById('video');
+async function $(sel){return document.querySelector(sel)}
+const gen = await $('#generate');
+(async()=>{
+  const src = $('#src');
+  const hls = $('#hls');
+  const copy = $('#copy');
+  const stop = $('#stop');
+  const status = $('#status');
 
-  let hlsInstance = null;
-
-  function setStatus(t) {
-    statusEl.innerText = 'Status: ' + t;
-  }
-
-  function stopPlayback() {
-    try {
-      if (hlsInstance) {
-        hlsInstance.destroy();
-        hlsInstance = null;
+  document.getElementById('generate').addEventListener('click', async ()=>{
+    const url = src.value.trim();
+    if(!url){alert('Paste a source URL'); return}
+    status.innerText = 'Status: starting...';
+    try{
+      const res = await fetch('/api/start',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({source:url})});
+      const j = await res.json();
+      if(j.ok){
+        hls.value = j.hls;
+        status.innerText = 'Status: running';
+      } else if (j.error){
+        alert('Error: '+j.error);
+        status.innerText = 'Status: error';
       }
-      video.pause();
-      video.removeAttribute('src');
-      video.load();
-    } catch(e) { console.warn(e); }
-  }
-
-  async function startPlay(url) {
-    stopPlayback();
-    setStatus('attempting to play');
-    // Use hls.js if supported (for most browsers)
-    if (Hls.isSupported()) {
-      hlsInstance = new Hls();
-      hlsInstance.loadSource(url);
-      hlsInstance.attachMedia(video);
-      hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
-        video.play().catch(()=>{});
-        setStatus('playing');
-      });
-      hlsInstance.on(Hls.Events.ERROR, (event, data) => {
-        console.warn('hls error', data);
-        if (data && data.type === 'networkError') {
-          setStatus('network error (CORS/404/403) — check source');
-        } else if (data && data.type === 'mediaError') {
-          setStatus('media error');
-        } else {
-          setStatus('error: ' + (data && data.details ? data.details : 'unknown'));
-        }
-      });
-    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      // Safari & some browsers
-      video.src = url;
-      video.addEventListener('loadedmetadata', () => {
-        video.play().catch(()=>{});
-        setStatus('playing');
-      }, { once: true });
-      video.addEventListener('error', () => {
-        setStatus('playback error');
-      }, { once: true });
-    } else {
-      setStatus('HLS not supported in this browser');
-    }
-  }
-
-  generateBtn.addEventListener('click', async () => {
-    const url = srcInput.value.trim();
-    if (!url) {
-      alert('Paste a .m3u8 URL first');
-      return;
-    }
-
-    // quick validation
-    if (!url.endsWith('.m3u8') && !url.includes('.m3u8?')) {
-      if (!confirm('URL does not look like .m3u8. Continue?')) return;
-    }
-
-    // Here the "generated" HLS link is simply the source (since no backend).
-    // We display it so user can copy/share. For real restream you'd replace this with your server URL.
-    hlsInput.value = url;
-    setStatus('ready — playing source (no restream, static demo)');
-    await startPlay(url);
-  });
-
-  clearBtn.addEventListener('click', () => {
-    srcInput.value = '';
-    hlsInput.value = '';
-    stopPlayback();
-    setStatus('idle');
-  });
-
-  copyBtn.addEventListener('click', async () => {
-    const v = hlsInput.value.trim();
-    if (!v) return;
-    try {
-      await navigator.clipboard.writeText(v);
-      copyBtn.innerText = 'Copied';
-      setTimeout(()=> copyBtn.innerText = 'Copy', 1200);
-    } catch (e) {
-      alert('Copy failed — manually select and copy the URL');
+    }catch(e){
+      alert('Request failed: '+e);
+      status.innerText = 'Status: failed';
     }
   });
 
-  // keyboard: Enter triggers generate
-  srcInput.addEventListener('keydown', (ev) => {
-    if (ev.key === 'Enter') generateBtn.click();
+  stop.addEventListener('click', async ()=>{
+    await fetch('/api/stop',{method:'POST'});
+    status.innerText = 'Status: stopped';
+    $('#hls').value = '';
   });
 
+  copy.addEventListener('click', ()=>{
+    if(!hls.value) return;
+    navigator.clipboard.writeText(hls.value).then(()=>{
+      copy.innerText = 'Copied';
+      setTimeout(()=>copy.innerText='Copy',1000);
+    });
+  });
+})();
 </script>
 </body>
 </html>
